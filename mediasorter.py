@@ -65,6 +65,15 @@ def sort_tv_file(config, srcpath, dstpath):
         logger(config, "Error: Filename '{}' could not be split into sufficient parts to be parsed.".format(filename))
         return False, False
 
+    # Get the year identifier if present (similar to movie parsing)
+    year_idx = None
+    for idx, element in enumerate(split_filename):
+        # A year is an element exactly matching 4 numerals optionally wrapped in parens
+        match = re.match('^\(?([0-9]{4})\)?$', element)
+        if match:
+            year_idx = idx
+            break
+
     # Get the series title and SXXEYY identifier, then end; we get the rest from TVDB
     end_idx = len(split_filename)
     sxxeyy_idx = 0
@@ -105,17 +114,23 @@ def sort_tv_file(config, srcpath, dstpath):
                 season_id = 1
             break
 
-    # Series title: start to sxxeyy_idx
+    # Series title: start to sxxeyy_idx, excluding year if present
     raw_series_title_unfixed = split_filename[0:sxxeyy_idx]
+    if year_idx is not None:
+        # Remove the year and any elements after it up to the season/episode marker
+        raw_series_title_unfixed = split_filename[0:year_idx]
+    
     if not raw_series_title_unfixed:
         # Handle cases where the filename is like DexterS01E03 or similar stupid naming
         raw_series_title_unfixed = split_filename[0:sxxeyy_idx+1]
+    
     raw_series_title = list()
     for word in raw_series_title_unfixed:
         # Remove SXXEYY from the word
         if re.search(r'[Ss][0-9]+[Ee][0-9]+', word):
             word = re.sub(r'[Ss][0-9]+[Ee][0-9]+', '', word)
         raw_series_title.append(word)
+    
     search_series_title = ' '.join([x.lower() for x in raw_series_title])
     if search_series_title in config['search_overrides']:
         search_series_title = config['search_overrides'][search_series_title]
